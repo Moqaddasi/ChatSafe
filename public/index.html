@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,6 +15,7 @@
             background-color: #f4f4f4;
             margin: 0;
         }
+
         .container {
             display: flex;
             width: 800px;
@@ -23,6 +25,7 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
+
         .chat-container {
             flex: 3;
             padding: 15px;
@@ -30,13 +33,16 @@
             flex-direction: column;
             border-right: 1px solid #ddd;
         }
+
         .notepad-container {
             flex: 2;
             padding: 15px;
             display: flex;
             flex-direction: column;
         }
-        .chat-header, .notepad-header {
+
+        .chat-header,
+        .notepad-header {
             padding-bottom: 10px;
             border-bottom: 1px solid #ddd;
             font-weight: bold;
@@ -44,41 +50,42 @@
             justify-content: space-between;
             align-items: center;
         }
+
         .chat-box {
             flex: 1;
             overflow-y: auto;
             padding: 10px 0;
         }
+
         .message {
             margin: 5px 0;
             padding: 8px;
             border-radius: 5px;
             max-width: 70%;
             word-wrap: break-word;
-            position: relative;
         }
+
         .user-message {
             background: #d1e7dd;
             margin-left: auto;
         }
+
         .friend-message {
             background: #cfe2ff;
         }
-        .message-meta {
-            font-size: 0.7em;
-            color: #666;
-            margin-top: 2px;
-        }
+
         .input-area {
             display: flex;
             margin-top: 10px;
         }
+
         input {
             flex: 1;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 5px;
         }
+
         button {
             margin-left: 5px;
             padding: 8px 15px;
@@ -88,9 +95,7 @@
             border-radius: 5px;
             cursor: pointer;
         }
-        button:hover {
-            background: #0b5ed7;
-        }
+
         .notepad {
             flex: 1;
             overflow-y: auto;
@@ -99,21 +104,9 @@
             border: 1px solid #ddd;
             border-radius: 5px;
         }
-        .notepad-entry {
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            border-bottom: 1px dashed #ccc;
-        }
-        .timer {
-            margin-left: 10px;
-            color: #dc3545;
-        }
-        .user-id {
-            font-weight: bold;
-            color: #0d6efd;
-        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="chat-container">
@@ -130,11 +123,12 @@
         <div class="notepad-container">
             <div class="notepad-header">
                 <span>Notepad</span>
-                <span>Auto-deletes after 1 minutes</span>
+                <span>Auto-deletes after 1 min</span>
             </div>
             <div class="notepad" id="notepad"></div>
         </div>
     </div>
+
     <script>
         const simulatedIPs = [
             '172.16.9.125',
@@ -142,10 +136,6 @@
         ];
 
         let currentUserIP = simulatedIPs[0];
-        let messageCounter = 0;
-        let messageTimers = {};
-        let chatMessageTimers = {}; // Store chat message timers
-
         document.getElementById('user-ip').textContent = currentUserIP;
 
         function handleKeyPress(event) {
@@ -160,123 +150,52 @@
             if (message === "") return;
 
             addMessageToChat(message, 'user');
-
             addToNotepad(message, currentUserIP);
+
+            // Send message to backend
+            fetch("http://localhost:3000/save-message", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message, userIP: currentUserIP }),
+            })
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch(error => console.error("Error:", error));
 
             inputField.value = "";
 
             if (Math.random() > 0.5) {
-                setTimeout(() => {
-                    simulateFriendResponse();
-                }, 1000 + Math.random() * 2000);
+                setTimeout(simulateFriendResponse, 1000 + Math.random() * 2000);
             }
         }
 
         function addMessageToChat(text, sender) {
             let chatBox = document.getElementById("chat-box");
             let messageDiv = document.createElement("div");
-
-            if (sender === 'user') {
-                messageDiv.className = "message user-message";
-                messageDiv.innerHTML = `${text} <div class="message-meta">You (${currentUserIP})</div>`;
-            } else {
-                messageDiv.className = "message friend-message";
-                messageDiv.innerHTML = `${text} <div class="message-meta">Friend (${simulatedIPs[1]})</div>`;
-            }
-
+            messageDiv.className = sender === 'user' ? "message user-message" : "message friend-message";
+            messageDiv.textContent = text;
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
-
-            // Function to delete the message after 1 minute
-            function deleteChatMessage(messageDiv) {
-                messageDiv.remove();
-            }
-
-            // Set a timer to delete the message after 1 minute (60000 milliseconds)
-            setTimeout(() => {
-                deleteChatMessage(messageDiv);
-            }, 60000);
         }
 
         function addToNotepad(text, ip) {
             let notepad = document.getElementById("notepad");
-            let entryId = 'entry-' + (++messageCounter);
             let entry = document.createElement("div");
-            entry.id = entryId;
             entry.className = "notepad-entry";
-
-            let now = new Date();
-            let timeStr = now.toLocaleTimeString();
-
-            entry.innerHTML = `
-                <div><span class="user-id">${ip}</span> at ${timeStr}</div>
-                <div>${text}</div>
-                <div class="timer" id="timer-${entryId}">Deleting in: 3:00</div>
-            `;
-
+            entry.innerHTML = `<strong>${ip}:</strong> ${text}`;
             notepad.appendChild(entry);
             notepad.scrollTop = notepad.scrollHeight;
 
-            let secondsLeft = 60;
-            messageTimers[entryId] = setInterval(() => {
-                secondsLeft--;
-                let minutes = Math.floor(secondsLeft / 60);
-                let seconds = secondsLeft % 60;
-                document.getElementById(`timer-${entryId}`).textContent =
-                    `Deleting in: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-
-                if (secondsLeft <= 0) {
-                    clearInterval(messageTimers[entryId]);
-                    delete messageTimers[entryId];
-                    entry.remove();
-                }
-            }, 1000);
+            setTimeout(() => entry.remove(), 60000);
         }
 
         function simulateFriendResponse() {
-            const friendResponses = [
-                "Hey there! How's it going?",
-                "That's interesting. Tell me more!",
-                "I see what you mean. Let me think about that.",
-                "Do you want to meet up later?",
-                "Have you finished the project?",
-                "Sorry, I was away from keyboard.",
-                "LOL that's funny!",
-                "I'm not sure I agree with that.",
-                "What time works for you?",
-                "I'll be there in 10 minutes."
-            ];
-
+            const friendResponses = ["Hey!", "How's it going?", "Tell me more.", "Interesting!", "LOL!"];
             let randomResponse = friendResponses[Math.floor(Math.random() * friendResponses.length)];
             addMessageToChat(randomResponse, 'friend');
             addToNotepad(randomResponse, simulatedIPs[1]);
         }
-
-        function toggleUser() {
-            if (currentUserIP === simulatedIPs[0]) {
-                currentUserIP = simulatedIPs[1];
-                document.getElementById('user-ip').textContent = currentUserIP;
-                document.getElementById('current-user').innerHTML = 'Friend IP: <span class="user-id" id="user-ip">' + currentUserIP + '</span>';
-            } else {
-                currentUserIP = simulatedIPs[0];
-                document.getElementById('user-ip').textContent = currentUserIP;
-                document.getElementById('current-user').innerHTML = 'Your IP: <span class="user-id" id="user-ip">' + currentUserIP + '</span>';
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            let toggleBtn = document.createElement('button');
-            toggleBtn.textContent = 'Switch User (Demo)';
-            toggleBtn.style.position = 'fixed';
-            toggleBtn.style.top = '10px';
-            toggleBtn.style.right = '10px';
-            toggleBtn.onclick = toggleUser;
-            document.body.appendChild(toggleBtn);
-
-            setTimeout(() => {
-                addMessageToChat(`Welcome to the enhanced chat! Your messages will be saved to the notepad and automatically deleted after  ${secondsLeft/60}.`, 'friend');
-            }, 1000);
-        });
     </script>
 </body>
+
 </html>
